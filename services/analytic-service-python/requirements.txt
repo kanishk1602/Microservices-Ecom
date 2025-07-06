@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+motor
+aiokafka
+python-dotenv
+pydantic
+certifi

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Node
+node_modules/
+
+# Environment & Secrets
+.env
+*.env.*
+
+# OS files
+.DS_Store
+
+# VSCode / IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Virtual environments
+venv/
+.env/
+
+# Build artifacts
+dist/
+build/
+coverage/

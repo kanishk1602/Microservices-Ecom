@@ -137,7 +137,7 @@ async def consume_kafka():
     )
     try:
         await consumer.start()
-        logger.info(f"✅ Kafka consumer started in group '{GROUP_ID}'")
+        logger.info(f"Kafka consumer started in group '{GROUP_ID}'")
         async for msg in consumer:
             try:
                 payload = json.loads(msg.value.decode())
@@ -162,7 +162,7 @@ async def consume_kafka():
                             "timestamp": datetime.fromisoformat(payload["timestamp"]) if payload.get("timestamp") else datetime.utcnow()
                         }
                         result = await db.payment.insert_one(doc)
-                        logger.info(f"💾 Saved payment document {result.inserted_id}: {doc}")
+                        logger.info(f"Saved payment document {result.inserted_id}: {doc}")
                 elif topic == "order-successful":
                     doc = {
                         "userId": payload.get("userId"),
@@ -170,7 +170,7 @@ async def consume_kafka():
                         "timestamp": datetime.utcnow()
                     }
                     res = await db.order.insert_one(doc)
-                    logger.info(f"💾 Saved order document {res.inserted_id}: {doc}")
+                    logger.info(f"Saved order document {res.inserted_id}: {doc}")
                 elif topic == "email-successful":
                     doc = {
                         "userId": payload.get("userId"),
@@ -178,24 +178,24 @@ async def consume_kafka():
                         "timestamp": datetime.utcnow()
                     }
                     res = await db.email.insert_one(doc)
-                    logger.info(f"💾 Saved email document {res.inserted_id}: {doc}")
+                    logger.info(f"Saved email document {res.inserted_id}: {doc}")
             except Exception as e:
-                logger.error(f"❌ Failed to process message: {e}")
+                logger.error(f"Failed to process message: {e}")
     except Exception as e:
-        logger.error(f"❌ Kafka consumer error: {e}")
+        logger.error(f"Kafka consumer error: {e}")
     finally:
         await consumer.stop()
-        logger.info("🔒 Kafka consumer stopped")
+        logger.info("Kafka consumer stopped")
 
 @app.on_event("startup")
 async def startup_event():
     global consumer_task
     try:
         await mongo_client.admin.command("ping")
-        logger.info("✅ MongoDB connected")
+        logger.info("MongoDB connected")
         logger.info(f"Using Kafka group id: {GROUP_ID}")
     except Exception as e:
-        logger.error(f"❌ MongoDB connection failed: {e}")
+        logger.error(f"MongoDB connection failed: {e}")
     consumer_task = asyncio.create_task(consume_kafka())
 
 @app.on_event("shutdown")

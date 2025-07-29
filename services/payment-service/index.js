@@ -87,8 +87,6 @@ const connectToKafka = async () => {
 const handleNewOrder = async (order) => {
   try {
     console.log("Processing new order:", order.orderId);
-    // Here you would typically create a payment record in your database
-    // and then initiate the payment process
     
     // For now, we'll just log it
     console.log(`Order ${order.orderId} received for payment processing`);

@@ -64,10 +64,6 @@ app.post("/api/send-email", async (req, res) => {
     console.log(`Subject: ${subject}`);
     console.log(`Text: ${text || "No text content"}`);
 
-    // In a real implementation, you would use nodemailer or similar
-    // const transporter = nodemailer.createTransporter({...});
-    // await transporter.sendMail({ to, subject, text, html });
-
     res.json({
       success: true,
       message: "Email sent successfully (mock)",

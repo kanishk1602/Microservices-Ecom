@@ -240,9 +240,9 @@ const run = async () => {
 
     // Start Express server
     app.listen(PORT, () => {
-      console.log(`🚀 Analytics Service running on port ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log(`📋 API docs: http://localhost:${PORT}/`);
+      console.log(`Analytics Service running on port ${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
+      console.log(`API docs: http://localhost:${PORT}/`);
     });
   } catch (err) {
     console.error("Error starting analytics service:", err);

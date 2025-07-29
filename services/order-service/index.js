@@ -110,8 +110,6 @@ app.post("/api/orders", async (req, res) => {
 // Get orders endpoint
 app.get("/api/orders", async (req, res) => {
   try {
-    // For now, return a mock response
-    // In a real application, you would query a database
     res.json({
       success: true,
       orders: [
@@ -192,7 +190,6 @@ const run = async () => {
         if (topic === "payment-successful") {
           // TODO: Create order on DB
           const dummyOrderId = "123456789";
-          // Removed userId log and order-successful event
           // Send success email
           await sendMail(
             email,
@@ -212,9 +209,9 @@ const run = async () => {
 
     // Start Express server
     app.listen(PORT, () => {
-      console.log(`🚀 Order Service running on port ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log(`📋 API docs: http://localhost:${PORT}/`);
+      console.log(`Order Service running on port ${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
+      console.log(`API docs: http://localhost:${PORT}/`);
     });
   } catch (err) {
     console.error("Error starting order service:", err);

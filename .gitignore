@@ -1,0 +1,31 @@
+# Node
+node_modules/
+**/node_modules/
+
+# Next.js
+.next/
+services/client/.next/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+
+# Build
+dist/
+build/
+
+# Other
+.DS_Store

@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function OrdersPage() {
@@ -8,8 +9,12 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
+  const [stripeConfirmed, setStripeConfirmed] = useState(false);
+  
+  const searchParams = useSearchParams();
 
   const ORDER_SERVICE_URL = process.env.NEXT_PUBLIC_ORDER_URL || 'http://localhost:4001';
+  const PAYMENT_SERVICE_URL = process.env.NEXT_PUBLIC_PAYMENT_URL || 'http://localhost:4002';
 
   const getUserKey = () => {
     if (typeof window === 'undefined') return 'guest';
@@ -27,6 +32,61 @@ export default function OrdersPage() {
     if (typeof window === 'undefined') return null;
     return window.localStorage.getItem('authToken');
   };
+
+  // Handle Stripe redirect - confirm the checkout session
+  useEffect(() => {
+    const confirmStripeCheckout = async () => {
+      const sessionId = searchParams.get('session_id');
+      
+      console.warn('[Orders] URL params:', {
+        session_id: sessionId,
+        status: searchParams.get('status'),
+        all: searchParams.toString()
+      });
+      
+      if (sessionId && !stripeConfirmed) {
+        console.warn('[Orders] Calling confirm-checkout with sessionId:', sessionId);
+        try {
+          const res = await fetch(`${PAYMENT_SERVICE_URL}/api/stripe/confirm-checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+          });
+          const data = await res.json();
+          
+          if (data.success) {
+            setStripeConfirmed(true);
+            // Clear cart from localStorage
+            const userKey = getUserKey();
+            if (typeof window !== 'undefined') {
+              window.localStorage.removeItem(`cart:${userKey}`);
+            }
+            // Also clear cart from backend
+            const token = getAuthToken();
+            if (token) {
+              try {
+                await fetch(`${ORDER_SERVICE_URL}/api/cart`, {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  credentials: 'include',
+                });
+              } catch (e) {
+                console.warn('Failed to clear cart from backend:', e);
+              }
+            }
+            // Wait a moment for Kafka to process, then refresh orders
+            setTimeout(() => {
+              window.location.href = '/orders'; // Remove query params and refresh
+            }, 2000);
+          }
+        } catch (e) {
+          console.error('Failed to confirm Stripe checkout:', e);
+        }
+      }
+    };
+    
+    confirmStripeCheckout();
+  }, [searchParams, stripeConfirmed, PAYMENT_SERVICE_URL, ORDER_SERVICE_URL]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -142,15 +202,21 @@ export default function OrdersPage() {
                   <div className="mt-6 flow-root">
                     <div className="-my-6 divide-y divide-gray-200">
                       {(order.items || []).map((item, idx) => (
-                        <div key={item.productId || item.id || idx} className="py-6 sm:flex">
+                        <div key={`${order.orderId}-item-${idx}`} className="py-6 sm:flex">
                           <div className="flex-shrink-0">
-                            <Image
-                              src={item.image}
-                              alt={item.name}
-                              width={128}
-                              height={128}
-                              className="w-32 h-32 rounded-md object-center object-cover"
-                            />
+                            {item.image ? (
+                              <Image
+                                src={item.image}
+                                alt={item.name || 'Product image'}
+                                width={128}
+                                height={128}
+                                className="w-32 h-32 rounded-md object-center object-cover"
+                              />
+                            ) : (
+                              <div className="w-32 h-32 rounded-md bg-gray-200 flex items-center justify-center text-gray-400">
+                                <span className="text-xs">No image</span>
+                              </div>
+                            )}
                           </div>
 
                           <div className="mt-4 sm:mt-0 sm:ml-6">

@@ -13,7 +13,7 @@ const ORDER_URL = process.env.NEXT_PUBLIC_ORDER_URL || "http://localhost:4001";
 const products = [
   {
     id: 1,
-    name: "Nike Air Max",
+    name: "Adidas Shoes",
     price: 12000,
     image: "/product1.png",
     category: "Shoes",
@@ -22,7 +22,7 @@ const products = [
   },
   {
     id: 2,
-    name: "Adidas Superstar Cap",
+    name: "Adidas Cap",
     price: 2000,
     image: "/product2.png",
     category: "Accessories",
@@ -78,6 +78,8 @@ export default function Page() {
     };
   }, []);
   const [cart, setCart] = useState([]);
+  const [gateways, setGateways] = useState([]);
+  const [selectedGateway, setSelectedGateway] = useState('razorpay');
   const [userKey, setUserKey] = useState('guest');
   const [cartLoaded, setCartLoaded] = useState(false);
   const saveCartTimeoutRef = useRef(null);
@@ -102,6 +104,26 @@ export default function Page() {
   // Determine current user key (guest or user:<id/email>)
   useEffect(() => {
     setUserKey(getUserKey());
+  }, []);
+
+  // Fetch available payment gateways from payment service
+  useEffect(() => {
+    const loadGateways = async () => {
+      try {
+        const res = await fetch(`${PAYMENT_URL}/api/payment-gateways`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.gateways)) {
+          setGateways(data.gateways.filter(g => g.available));
+          const first = data.gateways.find(g => g.available);
+          if (first) setSelectedGateway(first.id);
+        }
+      } catch (err) {
+        // fallback to razorpay
+        setGateways([{ id: 'razorpay', name: 'Razorpay' }]);
+        setSelectedGateway('razorpay');
+      }
+    };
+    loadGateways();
   }, []);
 
   // Load cart from backend on mount, fallback to localStorage
@@ -248,6 +270,44 @@ export default function Page() {
 
   const handlePlaceOrder = async () => {
     try {
+      // Get user info for backend
+      let userInfo = { email: '', userId: '' };
+      if (typeof window !== "undefined" && window.localStorage) {
+        const userStr = window.localStorage.getItem("user");
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            userInfo.email = user.email || '';
+            userInfo.userId = user.id || user._id || '';
+          } catch {}
+        }
+      }
+
+      if (selectedGateway === 'stripe') {
+        // Use Stripe Checkout redirect flow
+        const res = await fetch(`${PAYMENT_URL}/api/stripe/create-checkout-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cart: cart.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity, image: item.image })),
+            email: userInfo.email,
+            userId: userInfo.userId,
+            successUrl: window.location.origin + '/orders?status=success',
+            cancelUrl: window.location.origin + '/',
+            currency: 'usd'
+          })
+        });
+        const data = await res.json();
+        if (data && data.success && data.url) {
+          window.location.href = data.url;
+          return;
+        } else {
+          alert('Failed to start Stripe checkout');
+          return;
+        }
+      }
+
+      // Default: Razorpay flow
       // Ensure Razorpay script is loaded
       if (typeof window.Razorpay !== 'function') {
         const script = document.createElement('script');
@@ -256,10 +316,7 @@ export default function Page() {
         document.body.appendChild(script);
         await new Promise(resolve => {
           script.onload = resolve;
-          script.onerror = () => {
-            alert('Failed to load Razorpay SDK');
-            resolve();
-          };
+          script.onerror = () => { resolve(); };
         });
         if (typeof window.Razorpay !== 'function') {
           alert('Razorpay SDK not loaded');
@@ -275,23 +332,14 @@ export default function Page() {
           amount: subtotal,
           receipt: 'order_' + Date.now(),
           notes: {
-            items: JSON.stringify(cart.map(item => ({
-              id: item.id,
-              name: item.name,
-              price: item.price,
-              quantity: item.quantity
-            }))),
-            email:
-              (typeof window !== "undefined" && window.localStorage && window.localStorage.getItem("user"))
-                ? JSON.parse(window.localStorage.getItem("user")).email
-                : ""
+            items: JSON.stringify(cart.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity }))),
+            email: userInfo.email || ''
           }
         })
       });
 
-      const data = await orderResponse.json();
-      const order = data.order;
-
+      const orderData = await orderResponse.json();
+      const order = orderData.order;
       if (!order || !order.id) {
         alert('Failed to create order');
         return;
@@ -307,20 +355,7 @@ export default function Page() {
         order_id: order.id,
         handler: async function(response) {
           try {
-            // Get user info for backend
-            let userInfo = { email: '', userId: '' };
-            if (typeof window !== "undefined" && window.localStorage) {
-              const userStr = window.localStorage.getItem("user");
-              if (userStr) {
-                try {
-                  const user = JSON.parse(userStr);
-                  userInfo.email = user.email || '';
-                  userInfo.userId = user.id || user._id || '';
-                } catch {}
-              }
-            }
-
-            // 3. Verify payment on backend
+            // Verify payment on backend
             const verificationResponse = await fetch(`${PAYMENT_URL}/api/verify-payment`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -330,13 +365,7 @@ export default function Page() {
                 signature: response.razorpay_signature,
                 email: userInfo.email,
                 userId: userInfo.userId,
-                cart: cart.map(item => ({
-                  id: item.id,
-                  name: item.name,
-                  price: item.price,
-                  quantity: item.quantity,
-                  image: item.image
-                }))
+                cart: cart.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity, image: item.image }))
               })
             });
             const result = await verificationResponse.json();
@@ -346,43 +375,27 @@ export default function Page() {
               const token = getAuthToken();
               if (token) {
                 try {
-                  await fetch(`${ORDER_URL}/api/cart`, {
-                    method: 'DELETE',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      Authorization: `Bearer ${token}`,
-                    },
-                    credentials: 'include',
-                  });
+                  await fetch(`${ORDER_URL}/api/cart`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, credentials: 'include' });
                 } catch {}
               }
-              
               setCart([]);
               setIsCartOpen(false);
-              alert('Order placed successfully!');
+              // Redirect to orders page (same as Stripe)
+              window.location.href = '/orders?status=success';
             } else {
               alert('Payment verification failed');
             }
           } catch {
             alert('Payment verification error');
           }
-        },
-        prefill: {
-          name: 'Customer Name',
-          email: 'customer@example.com',
-          contact: '9999999999'
-        },
-        theme: {
-          color: '#4F46E5'
         }
       };
 
       const paymentObject = new window.Razorpay(options);
-      paymentObject.on('payment.failed', function(response) {
-        alert(`Payment failed: ${response.error.description}`);
-      });
+      paymentObject.on('payment.failed', function(response) { alert(`Payment failed: ${response.error.description}`); });
       paymentObject.open();
-    } catch {
+    } catch (e) {
+      console.error(e);
       alert('Order/payment error');
     }
   };
@@ -444,8 +457,8 @@ export default function Page() {
                         <p className="text-gray-500 text-center py-4">Your cart is empty</p>
                       ) : (
                         <div className="space-y-4">
-                          {cart.map((item) => (
-                            <div key={item.id} className="flex items-center space-x-4">
+                          {cart.map((item, idx) => (
+                            <div key={`${item.id}-${idx}`} className="flex items-center space-x-4">
                               <div className="flex-shrink-0">
                                 <Image
                                   src={item.image}
@@ -481,6 +494,20 @@ export default function Page() {
                         <div className="flex justify-between text-base font-medium text-gray-900 mb-4">
                           <p>Subtotal</p>
                           <p>${subtotal.toFixed(2)}</p>
+                        </div>
+                        <div className="mb-3">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                          <div className="flex space-x-2">
+                            {gateways.length > 0 ? (
+                              gateways.map(g => (
+                                <button key={g.id} onClick={() => setSelectedGateway(g.id)} className={`px-3 py-1 rounded-md text-sm border ${selectedGateway===g.id? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700'}`}>
+                                  {g.name}
+                                </button>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500">Razorpay</span>
+                            )}
+                          </div>
                         </div>
                         <button
                           onClick={handlePlaceOrder}

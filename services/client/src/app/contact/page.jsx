@@ -61,12 +61,12 @@ export default function ContactPage() {
           <div className="mt-12 text-center">
             <h2 className="text-lg font-medium text-gray-900">Our office</h2>
             <p className="mt-2 text-base text-gray-500">
-              123 Main St, Suite 100<br />
-              San Francisco, CA 94107
+              N13/07 Aquamarine Hostel<br />
+              Dhanbad, Jharkhand, India - 826004
             </p>
             <p className="mt-2 text-base text-gray-500">
-              Email: support@example.com<br />
-              Phone: (123) 456-7890
+              Email: kanishk1602.agp@gmail.com<br />
+              Phone: +91 (903) 101-1602
             </p>
           </div>
         </div>

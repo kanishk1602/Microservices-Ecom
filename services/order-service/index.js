@@ -253,9 +253,24 @@ const run = async () => {
 
         if (topic === "payment-successful") {
           try {
+            // Debug: Log incoming payload
+            console.log('[Order] Received payment-successful:', {
+              gateway: payload.gateway,
+              email: email,
+              userId: userId,
+              cartItems: cart?.length || 0,
+            });
+
             // Create or update order as paid
             const total = Array.isArray(cart) ? cart.reduce((s, i) => s + i.price * i.quantity, 0) : 0;
             const oid = razorpayOrderId || `order_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+            // Determine payment provider and ids
+            const provider = payload.gateway || (paymentId || razorpayOrderId ? 'razorpay' : (payload.paymentIntentId ? 'stripe' : 'unknown'));
+            const providerOrderId = provider === 'razorpay' ? razorpayOrderId : (payload.paymentIntentId || null);
+            const providerPaymentId = provider === 'razorpay' ? paymentId : (payload.paymentIntentId || null);
+            const providerSignature = provider === 'razorpay' ? signature : (payload.signature || null);
+
             await Order.updateOne(
               { orderId: oid },
               {
@@ -271,34 +286,40 @@ const run = async () => {
                 })),
                 total,
                 status: "paid",
-                payment: { provider: "razorpay", providerOrderId: razorpayOrderId, paymentId, signature },
-              },
-              { upsert: true }
-            );
-            console.log(`Order ${oid} marked as paid in database`);
+                // Save provider info dynamically
+                payment: {
+                  provider,
+                  providerOrderId: providerOrderId || undefined,
+                  paymentId: providerPaymentId || undefined,
+                  signature: providerSignature || undefined,
+                },
+               },
+               { upsert: true }
+             );
+             console.log(`Order ${oid} marked as paid in database`);
 
-            // Clear cart for user
-            if (userId && userId !== 'anonymous') {
-              await Cart.deleteOne({ userId });
-              console.log(`Cart cleared for user ${userId}`);
-            }
+             // Clear cart for user
+             if (userId && userId !== 'anonymous') {
+               await Cart.deleteOne({ userId });
+               console.log(`Cart cleared for user ${userId}`);
+             }
 
-            // Publish email event to Kafka (email-service will handle sending)
-            if (email) {
-              // Format order details for email
-              const itemsList = (cart || []).map((item, idx) => 
-                `${idx + 1}. ${item.name} - Qty: ${item.quantity} × $${item.price?.toFixed(2) || '0.00'} = $${((item.price || 0) * (item.quantity || 0)).toFixed(2)}`
-              ).join('\n');
+             // Publish email event to Kafka (email-service will handle sending)
+             if (email) {
+               // Format order details for email
+               const itemsList = (cart || []).map((item, idx) => 
+                 `${idx + 1}. ${item.name} - Qty: ${item.quantity} × $${item.price?.toFixed(2) || '0.00'} = $${((item.price || 0) * (item.quantity || 0)).toFixed(2)}`
+               ).join('\n');
+
+              // Build payment lines dynamically for email
+              const paymentMethodLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
+              const paymentIdentifier = provider === 'razorpay' ? (paymentId || providerPaymentId) : (providerPaymentId || providerOrderId);
 
               const emailText = `
 Order Confirmation
 ==================
 
 Thank you for your order!
-
-Order ID: ${oid}
-Order Date: ${new Date().toLocaleString()}
-Payment Status: PAID
 
 Order Details:
 --------------
@@ -310,12 +331,16 @@ Shipping: FREE
 --------------
 Total: $${total.toFixed(2)}
 
-Payment Method: Razorpay
-Payment ID: ${paymentId}
+Payment Method: ${paymentMethodLabel}
 
 Thank you for shopping with us!
 
 If you have any questions, please contact support.
+Payment Reference: ${paymentIdentifier || 'N/A'}
+
+Order ID: ${oid}
+Order Date: ${new Date().toLocaleString()}
+Payment Status: PAID
               `.trim();
 
               await producer.send({
@@ -334,10 +359,10 @@ If you have any questions, please contact support.
                 ],
               });
               console.log(`Email event published for ${email} with order details`);
-            }
-          } catch (e) {
-            console.error("Failed to persist paid order", e);
-          }
+             }
+           } catch (e) {
+             console.error("Failed to persist paid order", e);
+           }
         } else if (topic === "payment-failed") {
           try {
             const oid = razorpayOrderId || `order_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;

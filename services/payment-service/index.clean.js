@@ -13,7 +13,7 @@ import { paymentService } from "./gateways/index.js";
 // =============================================================================
 
 const app = express();
-const PORT = process.env.PORT || 4002;
+const PORT = process.env.PORT || 3002;
 
 // CORS configuration
 const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:3000")
@@ -138,15 +138,6 @@ async function publishPaymentSuccess(gateway, paymentData) {
   
   markAsProcessed(paymentId);
   const payload = paymentService.buildKafkaPayload(gateway, paymentData);
-  
-  // Debug: Log the payload being sent
-  console.log(`[Payment] Publishing to Kafka:`, {
-    gateway: payload.gateway,
-    email: payload.email,
-    userId: payload.userId,
-    cartItems: payload.cart?.length || 0,
-  });
-  
   return publishToKafka("payment-successful", payload);
 }
 
@@ -192,8 +183,6 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
  * Called by client after Stripe redirects back. Verifies and publishes to Kafka.
  */
 app.post("/api/stripe/confirm-checkout", async (req, res) => {
-  console.log("[Stripe] confirm-checkout called with sessionId:", req.body.sessionId);
-  
   try {
     const { sessionId } = req.body;
 
@@ -202,7 +191,6 @@ app.post("/api/stripe/confirm-checkout", async (req, res) => {
     }
 
     const result = await paymentService.verifyPayment("stripe", { sessionId });
-    console.log("[Stripe] verifyPayment result:", { success: result.success, verified: result.verified, email: result.data?.email });
 
     if (result.success && result.verified) {
       // Publish to Kafka (with deduplication in case webhook already fired)

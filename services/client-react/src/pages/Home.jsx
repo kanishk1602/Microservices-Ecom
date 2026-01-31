@@ -1,6 +1,8 @@
-import { ShoppingBag, User, Heart, Star, Search, Menu, X, Filter, ChevronDown, Sparkles, Truck, Shield, RefreshCw, LogOut, ArrowRight } from "lucide-react";
+import { ShoppingBag, User, Heart, Star, Search, Menu, X, Filter, ChevronDown, Sparkles, Truck, Shield, RefreshCw, LogOut, ArrowRight, Settings } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from 'react';
+import { useAdmin } from '../context/AdminContext';
+import { useProducts } from '../context/ProductContext';
 
 // Service base URLs
 const PAYMENT_URL = import.meta.env.VITE_PAYMENT_URL || "http://localhost:4002";
@@ -9,49 +11,12 @@ const ORDER_URL = import.meta.env.VITE_ORDER_URL || "http://localhost:4001";
 // Currency configuration
 const CURRENCY = { code: 'inr', symbol: '₹' };
 
-// 30 Products with diverse categories
-const products = [
-  // Shoes (8 items)
-  { id: 1, name: "Nike Air Max 270", price: 12500, originalPrice: 15000, image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400", category: "Shoes", rating: 4.8, reviews: 234, badge: "Bestseller", colors: ["#000", "#fff", "#e11d48"] },
-  { id: 2, name: "Adidas Ultraboost 22", price: 15800, originalPrice: 18300, image: "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=400", category: "Shoes", rating: 4.9, reviews: 456, badge: "New", colors: ["#000", "#3b82f6", "#22c55e"] },
-  { id: 3, name: "Puma RS-X", price: 9999, originalPrice: 11650, image: "https://images.unsplash.com/photo-1605348532760-6753d2c43329?w=400", category: "Shoes", rating: 4.6, reviews: 189, colors: ["#fff", "#f59e0b", "#8b5cf6"] },
-  { id: 4, name: "New Balance 574", price: 7075, originalPrice: 8325, image: "https://images.unsplash.com/photo-1539185441755-769473a23570?w=400", category: "Shoes", rating: 4.7, reviews: 312, badge: "Sale", colors: ["#6b7280", "#1e40af", "#dc2626"] },
-  { id: 5, name: "Converse Chuck Taylor", price: 5410, originalPrice: 6240, image: "https://images.unsplash.com/photo-1607522370275-f14206abe5d3?w=400", category: "Shoes", rating: 4.5, reviews: 567, colors: ["#000", "#fff", "#dc2626"] },
-  { id: 6, name: "Vans Old Skool", price: 5825, originalPrice: 6656, image: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=400", category: "Shoes", rating: 4.6, reviews: 423, colors: ["#000", "#1e3a5f"] },
-  { id: 7, name: "Jordan Air 1 High", price: 14980, originalPrice: 16650, image: "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=400", category: "Shoes", rating: 4.9, reviews: 789, badge: "Hot", colors: ["#dc2626", "#000", "#fff"] },
-  { id: 8, name: "Reebok Classic", price: 6240, originalPrice: 7488, image: "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400", category: "Shoes", rating: 4.4, reviews: 234, colors: ["#fff", "#000"] },
-  
-  // Clothing (12 items)
-  { id: 9, name: "Premium Cotton T-Shirt", price: 2912, originalPrice: 3744, image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400", category: "Clothing", rating: 4.7, reviews: 890, badge: "Bestseller", colors: ["#000", "#fff", "#3b82f6", "#22c55e"] },
-  { id: 10, name: "Slim Fit Jeans", price: 6573, originalPrice: 8234, image: "https://images.unsplash.com/photo-1542272604-787c3835535d?w=400", category: "Clothing", rating: 4.6, reviews: 567, colors: ["#1e3a5f", "#000", "#6b7280"] },
-  { id: 11, name: "Hoodie Sweatshirt", price: 5408, originalPrice: 6656, image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400", category: "Clothing", rating: 4.8, reviews: 345, badge: "New", colors: ["#000", "#6b7280", "#dc2626"] },
-  { id: 12, name: "Leather Jacket", price: 16557, originalPrice: 20800, image: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400", category: "Clothing", rating: 4.9, reviews: 234, badge: "Premium", colors: ["#000", "#8b4513"] },
-  { id: 13, name: "Casual Blazer", price: 10733, originalPrice: 13312, image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400", category: "Clothing", rating: 4.5, reviews: 178, colors: ["#1e3a5f", "#000", "#6b7280"] },
-  { id: 14, name: "Summer Dress", price: 7405, originalPrice: 9152, image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400", category: "Clothing", rating: 4.7, reviews: 456, badge: "Trending", colors: ["#ec4899", "#fff", "#fbbf24"] },
-  { id: 15, name: "Polo Shirt", price: 3744, originalPrice: 4576, image: "https://images.unsplash.com/photo-1625910513413-5fc45e4b8303?w=400", category: "Clothing", rating: 4.4, reviews: 234, colors: ["#fff", "#1e40af", "#000"] },
-  { id: 16, name: "Chino Pants", price: 5741, originalPrice: 7072, image: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=400", category: "Clothing", rating: 4.6, reviews: 345, colors: ["#d4a574", "#000", "#1e3a5f"] },
-  { id: 17, name: "Denim Jacket", price: 7405, originalPrice: 9152, image: "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=400", category: "Clothing", rating: 4.7, reviews: 289, colors: ["#3b82f6", "#000"] },
-  { id: 18, name: "Workout Tank Top", price: 2413, originalPrice: 2912, image: "https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400", category: "Clothing", rating: 4.5, reviews: 567, colors: ["#000", "#fff", "#22c55e"] },
-  { id: 19, name: "Flannel Shirt", price: 4576, originalPrice: 5824, image: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400", category: "Clothing", rating: 4.6, reviews: 234, badge: "Sale", colors: ["#dc2626", "#22c55e", "#3b82f6"] },
-  { id: 20, name: "Cargo Shorts", price: 4077, originalPrice: 4992, image: "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=400", category: "Clothing", rating: 4.4, reviews: 178, colors: ["#d4a574", "#000", "#22c55e"] },
-  
-  // Accessories (10 items)
-  { id: 21, name: "Classic Watch", price: 16557, originalPrice: 20800, image: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=400", category: "Accessories", rating: 4.9, reviews: 678, badge: "Luxury", colors: ["#c0c0c0", "#ffd700", "#000"] },
-  { id: 22, name: "Leather Belt", price: 3744, originalPrice: 4576, image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400", category: "Accessories", rating: 4.6, reviews: 345, colors: ["#000", "#8b4513"] },
-  { id: 23, name: "Sunglasses", price: 10733, originalPrice: 13312, image: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400", category: "Accessories", rating: 4.7, reviews: 456, badge: "Trending", colors: ["#000", "#8b4513", "#c0c0c0"] },
-  { id: 24, name: "Baseball Cap", price: 2413, originalPrice: 2912, image: "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=400", category: "Accessories", rating: 4.5, reviews: 567, colors: ["#000", "#fff", "#1e40af"] },
-  { id: 25, name: "Leather Wallet", price: 6573, originalPrice: 7904, image: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=400", category: "Accessories", rating: 4.8, reviews: 234, colors: ["#000", "#8b4513"] },
-  { id: 26, name: "Backpack", price: 7405, originalPrice: 9152, image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400", category: "Accessories", rating: 4.7, reviews: 456, badge: "New", colors: ["#000", "#6b7280", "#1e3a5f"] },
-  { id: 27, name: "Beanie Hat", price: 2080, originalPrice: 2496, image: "https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=400", category: "Accessories", rating: 4.4, reviews: 345, colors: ["#000", "#6b7280", "#dc2626"] },
-  { id: 28, name: "Silk Scarf", price: 5408, originalPrice: 6656, image: "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=400", category: "Accessories", rating: 4.6, reviews: 178, colors: ["#ec4899", "#3b82f6", "#fbbf24"] },
-  { id: 29, name: "Leather Gloves", price: 4576, originalPrice: 5824, image: "https://images.unsplash.com/photo-1591561954557-26941169b49e?w=400", category: "Accessories", rating: 4.5, reviews: 234, colors: ["#000", "#8b4513"] },
-  { id: 30, name: "Designer Tie", price: 4077, originalPrice: 4992, image: "https://images.unsplash.com/photo-1589756823695-278bc923f962?w=400", category: "Accessories", rating: 4.7, reviews: 123, badge: "Premium", colors: ["#1e40af", "#dc2626", "#000"] },
-];
-
-const categories = ["All", "Shoes", "Clothing", "Accessories"];
-
+// Use products from backend via ProductContext
 export default function Home() {
   const navigate = useNavigate();
+  const { isAdmin } = useAdmin();
+  const { products, loading: productsLoading } = useProducts();
+  const categories = ['All', ...new Set((products || []).map(p => p.category))];
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const cartRef = useRef(null);
@@ -851,6 +816,16 @@ export default function Home() {
                             <ShoppingBag className="w-5 h-5 text-gray-400" />
                             My Orders
                           </Link>
+                          {isAdmin && (
+                            <Link 
+                              to="/admin/dashboard" 
+                              onClick={() => setIsUserMenuOpen(false)}
+                              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-purple-600 hover:bg-purple-50 transition-all duration-300"
+                            >
+                              <Settings className="w-5 h-5" />
+                              Admin Dashboard
+                            </Link>
+                          )}
                           <button
                             onClick={handleLogout}
                             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all duration-300"

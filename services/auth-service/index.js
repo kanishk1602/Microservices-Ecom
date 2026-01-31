@@ -43,7 +43,6 @@ app.use(passport.session());
 //ab database se connect karna h, uske liye ek folder banayenge config, usme hoga database.js
 
 //index.js me ab database import kara lenge
-require("./config/database").connect();
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -65,6 +64,7 @@ app.get("/", (req, res) => {
       health: "/health",
       register: "/api/v1/auth/register",
       login: "/api/v1/auth/login",
+      products: "/api/v1/products",
     },
   });
 });
@@ -72,13 +72,29 @@ app.get("/", (req, res) => {
 //route ko import karo and mount karo
 //route naamka folder banao aur usme routes dalo
 //ham ek user bana lete h aur route ko import kara lenge
-const user = require("./routes/user");
-app.use("/api/v1/", user); // app.use krte user ko mount kara diya api/v1 pe
 
-//server ko activate karne ke liye
-app.listen(PORT, () => {
-  console.log(`App is listening at ${PORT}`);
-});
+const dbConnect = require("./config/database");
+
+// Connect to DB, then mount routes and start server. No seeder is run here.
+dbConnect.connect()
+  .then(() => {
+    // Mount routes after DB is ready
+    const user = require("./routes/user");
+    app.use("/api/v1/", user); // app.use krte user ko mount kara diya api/v1 pe
+
+    // Mount product routes
+    const productRoutes = require('./routes/product');
+    app.use('/api/v1', productRoutes);
+
+    //server ko activate karne ke liye
+    app.listen(PORT, () => {
+      console.log(`App is listening at ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("DB connection failed:", err);
+    process.exit(1);
+  });
 
 //ab routes define karenge
 // route kaha se ho raha ?

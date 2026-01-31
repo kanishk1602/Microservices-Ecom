@@ -129,7 +129,7 @@ export default function OrdersPage() {
     fetchOrders();
   }, [ORDER_SERVICE_URL]);
 
-  const currency = (n) => `$${Number(n || 0).toFixed(2)}`;
+  const currency = (n) => `₹${Number(n || 0).toFixed(2)}`;
   const formatDate = (iso) => new Date(iso).toLocaleString();
 
   return (

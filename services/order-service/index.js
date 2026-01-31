@@ -308,7 +308,7 @@ const run = async () => {
              if (email) {
                // Format order details for email
                const itemsList = (cart || []).map((item, idx) => 
-                 `${idx + 1}. ${item.name} - Qty: ${item.quantity} × $${item.price?.toFixed(2) || '0.00'} = $${((item.price || 0) * (item.quantity || 0)).toFixed(2)}`
+                 `${idx + 1}. ${item.name} - Qty: ${item.quantity} × ₹${item.price?.toFixed(2) || '0.00'} = ₹${((item.price || 0) * (item.quantity || 0)).toFixed(2)}`
                ).join('\n');
 
               // Build payment lines dynamically for email
@@ -325,11 +325,11 @@ Order Details:
 --------------
 ${itemsList || 'No items'}
 
-Subtotal: $${total.toFixed(2)}
-Tax: $0.00
+Subtotal: ₹${total.toFixed(2)}
+Tax: ₹0.00
 Shipping: FREE
 --------------
-Total: $${total.toFixed(2)}
+Total: ₹${total.toFixed(2)}
 
 Payment Method: ${paymentMethodLabel}
 

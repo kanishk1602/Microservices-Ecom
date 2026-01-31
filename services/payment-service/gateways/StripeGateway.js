@@ -44,7 +44,7 @@ export class StripeGateway extends PaymentGateway {
   /**
    * Create a Stripe Checkout Session
    */
-  async createOrder({ amount, currency = 'usd', cart, email, userId, metadata = {}, successUrl, cancelUrl }) {
+  async createOrder({ amount, currency = 'inr', cart, email, userId, metadata = {}, successUrl, cancelUrl }) {
     if (!this.isAvailable()) {
       return { success: false, error: 'Stripe is not configured' };
     }
@@ -117,7 +117,7 @@ export class StripeGateway extends PaymentGateway {
   /**
    * Create a Payment Intent (alternative to Checkout Session)
    */
-  async createPaymentIntent({ amount, currency = 'usd', email, userId, cart, metadata = {} }) {
+  async createPaymentIntent({ amount, currency = 'inr', email, userId, cart, metadata = {} }) {
     if (!this.isAvailable()) {
       return { success: false, error: 'Stripe is not configured' };
     }

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles, Github, Chrome } from 'lucide-react';
+import { useAdmin } from '../context/AdminContext';
 
 const AUTH_URL = import.meta.env.VITE_AUTH_URL || 'http://localhost:4000';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { refreshAdminStatus } = useAdmin();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -35,10 +37,21 @@ export default function Login() {
       if ((data.success === true || data.success === "true") && data.token) {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Immediately refresh admin status in context so admin UI is available without reload
+        try { refreshAdminStatus(); } catch (err) { /* ignore if context unavailable */ }
+
         // Show success animation before redirect
         setLoginSuccess(true);
+        
+        // Check if user is admin and redirect accordingly
+        const isAdminUser = data.user?.role === 'Admin';
         setTimeout(() => {
-          navigate('/');
+          if (isAdminUser) {
+            navigate('/admin/dashboard');
+          } else {
+            navigate('/');
+          }
         }, 1500);
       } else {
         setError(data.message || 'Login failed');

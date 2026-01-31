@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 require("dotenv").config(); // jo bhi .env configuration h usko load kardo
 
 exports.connect = () => { // lets se method ka naam connect rakh diya, and then arrow func create kiya
-    mongoose.connect(process.env.MONGODB_URL) // connect ke liye 2 chiz dalte h, pehla DB ka url jo .env se aayega
+    return mongoose.connect(process.env.MONGODB_URL) // connect ke liye 2 chiz dalte h, pehla DB ka url jo .env se aayega
     .then( () => {console.log("DB connected successfully")})
     .catch( (err) => {
         console.log("DB CONNECTION ISSUES");
